@@ -3,9 +3,9 @@
 package com.aslansari.qrscaner.feature.qrscanner
 
 import android.Manifest
-import android.util.Size
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -17,8 +17,17 @@ import androidx.compose.material.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -30,7 +39,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.withContext
 
+typealias AndroidSize = android.util.Size
+
 @Composable
+@ExperimentalGetImage
 fun QrScanningScreen(
     viewModel: QrScanViewModel
 ) {
@@ -60,7 +72,7 @@ fun QrScanningScreen(
     val preview = Preview.Builder().build()
     val imageAnalysis: ImageAnalysis = ImageAnalysis.Builder()
         .setTargetResolution(
-            Size(previewView.width, previewView.height)
+            AndroidSize(previewView.width, previewView.height)
         )
         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
         .build()
@@ -121,5 +133,39 @@ private fun Content(
                 previewView
             }
         )
+        val offsetInPx: Float
+        val widthInPx: Float
+        val heightInPx: Float
+        with(LocalDensity.current) {
+            offsetInPx = 300.dp.toPx()
+            widthInPx = 250.dp.toPx()
+            heightInPx = 250.dp.toPx()
+        }
+        Box(modifier = Modifier
+            .fillMaxSize().drawBehind {
+                with(drawContext.canvas.nativeCanvas) {
+                    val canvasWidth = size.width
+
+                    with(drawContext.canvas.nativeCanvas) {
+                        val checkPoint = saveLayer(null, null)
+
+                        // Destination
+                        drawRect(Color.Black.copy(alpha = .5f))
+
+                        // Source
+                        drawRoundRect(
+                            topLeft = Offset(
+                                x = (canvasWidth - widthInPx) / 2,
+                                y = offsetInPx
+                            ),
+                            size = Size(widthInPx, heightInPx),
+                            cornerRadius = CornerRadius(30f,30f),
+                            color = Color.Transparent,
+                            blendMode = BlendMode.Clear
+                        )
+                        restoreToCount(checkPoint)
+                    }
+                }
+        })
     }
 }
