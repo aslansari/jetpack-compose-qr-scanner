@@ -10,6 +10,8 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.aslansari.qrscaner.feature.qrscanner.QrScanningScreen
 import com.aslansari.qrscaner.ui.theme.QrScanerTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,26 +20,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             QrScanerTheme {
                 // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colors.background
-                ) {
-                    Greeting("Android")
-                }
+                QrScanningScreen(
+                    viewModel = hiltViewModel()
+                )
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String) {
-    Text(text = "Hello $name!")
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    QrScanerTheme {
-        Greeting("Android")
     }
 }
