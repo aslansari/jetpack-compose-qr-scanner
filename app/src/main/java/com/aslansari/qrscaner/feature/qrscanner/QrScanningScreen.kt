@@ -3,27 +3,31 @@
 package com.aslansari.qrscaner.feature.qrscanner
 
 import android.Manifest
-import androidx.camera.core.Camera
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ExperimentalGetImage
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.Preview
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Scaffold
+import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toAndroidRect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -76,14 +80,20 @@ fun QrScanningScreen(
         )
         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
         .build()
-        .also {
-            it.setAnalyzer(
-                Dispatchers.Default.asExecutor(),
-                QrCodeAnalyzer { result ->
-                    viewModel.onQrCodeDetected(result)
-                }
-            )
-        }
+
+    val targetRect by remember { derivedStateOf { uiState.targetRect } }
+
+    LaunchedEffect(targetRect) {
+        imageAnalysis.setAnalyzer(
+            Dispatchers.Default.asExecutor(),
+            QrCodeAnalyzer(
+                targetRect = targetRect.toAndroidRect(),
+                previewView = previewView,
+            ) { result ->
+                viewModel.onQrCodeDetected(result)
+            }
+        )
+    }
 
     val cameraSelector = CameraSelector.Builder()
         .requireLensFacing(uiState.lensFacing)
@@ -111,6 +121,7 @@ fun QrScanningScreen(
                     modifier = Modifier.padding(paddingValues),
                     uiState = uiState,
                     previewView = previewView,
+                    onTargetPositioned = viewModel::onTargetPositioned
                 )
             }
         }
@@ -122,50 +133,63 @@ fun QrScanningScreen(
 private fun Content(
     modifier: Modifier,
     previewView: PreviewView,
-    uiState: QrScanUIState
+    uiState: QrScanUIState,
+    onTargetPositioned: (Rect) -> Unit,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
             modifier = Modifier
-                .fillMaxSize()
-                .align(Alignment.Center),
+                .fillMaxSize(),
             factory = {
                 previewView
             }
         )
-        val offsetInPx: Float
         val widthInPx: Float
         val heightInPx: Float
+        val radiusInPx: Float
         with(LocalDensity.current) {
-            offsetInPx = 300.dp.toPx()
             widthInPx = 250.dp.toPx()
             heightInPx = 250.dp.toPx()
+            radiusInPx = 16.dp.toPx()
         }
-        Box(modifier = Modifier
-            .fillMaxSize().drawBehind {
-                with(drawContext.canvas.nativeCanvas) {
-                    val canvasWidth = size.width
-
-                    with(drawContext.canvas.nativeCanvas) {
-                        val checkPoint = saveLayer(null, null)
-
-                        // Destination
-                        drawRect(Color.Black.copy(alpha = .5f))
-
-                        // Source
-                        drawRoundRect(
-                            topLeft = Offset(
-                                x = (canvasWidth - widthInPx) / 2,
-                                y = offsetInPx
-                            ),
-                            size = Size(widthInPx, heightInPx),
-                            cornerRadius = CornerRadius(30f,30f),
-                            color = Color.Transparent,
-                            blendMode = BlendMode.Clear
-                        )
-                        restoreToCount(checkPoint)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = .5f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(
+                modifier = Modifier
+                    .size(250.dp)
+                    .border(1.dp, Color.White, RoundedCornerShape(16.dp))
+                    .onGloballyPositioned {
+                        onTargetPositioned(it.boundsInRoot())
                     }
-                }
-        })
+            ) {
+                val offset = Offset(
+                    x = (size.width - widthInPx) / 2,
+                    y = (size.height - heightInPx) / 2,
+                )
+                val cutoutRect = Rect(offset, Size(widthInPx, heightInPx))
+                // Source
+                drawRoundRect(
+                    topLeft = cutoutRect.topLeft,
+                    size = cutoutRect.size,
+                    cornerRadius = CornerRadius(radiusInPx, radiusInPx),
+                    color = Color.Transparent,
+                    blendMode = BlendMode.Clear
+                )
+            }
+        }
+        if (uiState.detectedQR.isNotEmpty()) {
+            Text(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+                    .background(Color.White.copy(alpha = .6f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                text = uiState.detectedQR,
+            )
+        }
     }
 }
