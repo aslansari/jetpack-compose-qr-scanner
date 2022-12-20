@@ -1,6 +1,3 @@
-
-This repository is a work in progress 🚧.
-
 # QR Scanner with Jetpack Compose and MLKit
 Welcome to the QR Scanner repository, a production-ready application built with Jetpack Compose and the powerful MLKit library. This application allows you to scan QR codes and retrieve the information stored within them in a fast and reliable manner.
 
